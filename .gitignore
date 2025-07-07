@@ -1,0 +1,11 @@
+__pycache__/
+.ruff_cache/
+build/
+dist/
+*.html
+*.py[cod]
+*.so
+*.dll
+*.exe
+*.app
+*.bin

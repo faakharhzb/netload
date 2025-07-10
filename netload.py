@@ -1,10 +1,35 @@
 import sys
+import os.path
 from http.client import HTTPConnection, HTTPSConnection, HTTPResponse
 from urllib.parse import urlparse, ParseResult
 from time import perf_counter
 from itertools import cycle
 from threading import Thread
 from mimetypes import guess_extension
+import argparse
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        prog='Netload', description='An HTTP file downloader.'
+    )
+
+    parser.add_argument('url', type=str, help='The URL to download.')
+    parser.add_argument(
+        '-o',
+        '--output',
+        type=str,
+        help='The file to save the output of the URL to.',
+    )
+    parser.add_argument(
+        '-t',
+        '--timeout',
+        type=float,
+        help='How long the program will wait until it breaks the connection, in seconds. Defaults to 10 seconds',
+        default=10,
+    )
+
+    return parser.parse_args(sys.argv[1:])
 
 
 def parse_url(raw_url: str) -> ParseResult:
@@ -16,11 +41,13 @@ def parse_url(raw_url: str) -> ParseResult:
     return url
 
 
-def make_conn(url: ParseResult) -> HTTPConnection | HTTPSConnection:
+def make_conn(
+    url: ParseResult, timeout: float
+) -> HTTPConnection | HTTPSConnection:
     if url.scheme == 'https':
-        conn = HTTPSConnection(url.netloc)
+        conn = HTTPSConnection(url.netloc, timeout=timeout)
     elif url.scheme == 'http':
-        conn = HTTPConnection(url.netloc)
+        conn = HTTPConnection(url.netloc, timeout=timeout)
     else:
         print('Unsupported URL scheme: ', url.scheme)
         sys.exit(1)
@@ -62,12 +89,12 @@ def manage_response_status(response: HTTPResponse) -> None | str:
 
 
 def fetch_data(
-    raw_url: str, redirect_limit: int = 5
+    raw_url: str, timeout: float, redirect_limit: int = 5
 ) -> tuple[ParseResult, HTTPResponse]:
     for _ in range(redirect_limit):
         url = parse_url(raw_url)
 
-        conn = make_conn(url)
+        conn = make_conn(url, timeout)
         response = get_response(conn, url)
 
         raw_url = manage_response_status(response)
@@ -115,16 +142,11 @@ def save_file(
 def set_file_path(response: HTTPResponse, url: ParseResult) -> tuple[str, str]:
     filetype = guess_extension(response.getheader('Content-Type').split(';')[0])
 
-    if '-o' in sys.argv:
-        file_path = sys.argv[sys.argv.index('-o') + 1]
-    elif '--output' in sys.argv:
-        file_path = sys.argv[sys.argv.index('--output') + 1]
-    else:
-        file_path = url.path.split('/')[-1] or f'index.{filetype}'
-        if not file_path.endswith(filetype):
-            file_path += '.' + filetype
+    file_path = url.path.split('/')[-1] or f'index.{filetype}'
+    if not file_path.endswith(filetype):
+        file_path += '.' + filetype
 
-    return (file_path, filetype)
+    return file_path
 
 
 def manage_sizes(response: HTTPResponse) -> tuple[int | str, str, int]:
@@ -153,12 +175,20 @@ def manage_sizes(response: HTTPResponse) -> tuple[int | str, str, int]:
     return (size, formatted_size, chunk)
 
 
-def main(raw_url: str) -> None:
+def main() -> None:
+    args = parse_args()
+
     start = perf_counter()
 
-    url, response = fetch_data(raw_url)
+    try:
+        url, response = fetch_data(args.url, args.timeout)
+    except TimeoutError:
+        print('Error. Connection timed out.')
 
-    file_path, filetype = set_file_path(response, url)
+    if not args.output:
+        file_path = set_file_path(response, url)
+    else:
+        file_path = args.output
 
     size, formatted_size, chunk = manage_sizes(response)
 
@@ -171,7 +201,4 @@ def main(raw_url: str) -> None:
 
 
 if __name__ == '__main__':
-    try:
-        main(sys.argv[1])
-    except IndexError:
-        sys.exit()
+    main()

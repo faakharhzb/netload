@@ -142,9 +142,9 @@ def save_file(
 def set_file_path(response: HTTPResponse, url: ParseResult) -> tuple[str, str]:
     filetype = guess_extension(response.getheader('Content-Type').split(';')[0])
 
-    file_path = url.path.split('/')[-1] or f'index.{filetype}'
+    file_path = url.path.split('/')[-1] or f'index{filetype}'
     if not file_path.endswith(filetype):
-        file_path += '.' + filetype
+        file_path += filetype
 
     return file_path
 
@@ -184,6 +184,7 @@ def main() -> None:
         url, response = fetch_data(args.url, args.timeout)
     except TimeoutError:
         print('Error. Connection timed out.')
+        sys.exit(1)
 
     if not args.output:
         file_path = set_file_path(response, url)

@@ -39,7 +39,7 @@ jobs:
           echo "BINNAME=$BINNAME" >> $GITHUB_ENV
 
       - name: Build with Nuitka
-        uses: Nuitka/nuitka-action@main
+        uses: Nuitka/Nuitka-Action@main
 
         with:
           script-name: netload.py

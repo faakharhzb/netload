@@ -38,7 +38,7 @@ jobs:
           BINNAME="netload-${VERSION}-${{ matrix.os_name }}-${ARCH}${{ matrix.ext }}"
           echo "BINNAME=$BINNAME" >> $GITHUB_ENV
       - name: Build with Nuitka
-        uses: Nuitka/nuitka-action@v1
+        uses: Nuitka/nuitka-action@main
         with:
           script-name: netload.py
           standalone: true

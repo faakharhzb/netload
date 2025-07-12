@@ -1,2 +1,2 @@
 # netload
-A quick and easy to use HTTP file downloader.
+A fast and easy to use HTTP file downloader, made in python.

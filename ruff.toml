@@ -15,16 +15,14 @@ exclude = [
     ".ruff_cache",
     ".svn",
     ".tox",
-    ".venv",
     ".vscode",
     "__pypackages__",
-    "_build",
+    "*build",
     "buck-out",
-    "build",
-    "dist",
+    "*dist",
     "node_modules",
     "site-packages",
-    "venv",
+    "*venv",
 ]
 
 line-length = 80
@@ -42,7 +40,7 @@ unfixable = []
 dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 
 [format]
-quote-style = "single"
+quote-style = "double"
 
 indent-style = "space"
 

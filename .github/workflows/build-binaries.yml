@@ -1,10 +1,6 @@
-name: Build Binaries
+name: Build binaries
 
 on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
   release:
     types: [published]
 
@@ -29,39 +25,74 @@ jobs:
             ext: ""
     steps:
       - uses: actions/checkout@v4
+      
       - name: Set up Python 3.12
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+          
       - name: Set binary name
         id: binname
         run: |
           VERSION="${{ github.event.release.tag_name }}"
           ARCH=$(uname -m)
-          BINNAME="netload-${VERSION}-${{ matrix.os_name }}-${ARCH}${{ matrix.ext }}"
+          BINNAME="netload-${VERSION}-${{ matrix.os_name }}-${ARCH}"
           echo "BINNAME=$BINNAME" >> $GITHUB_ENV
 
-      - name: Build with Nuitka
-        uses: Nuitka/Nuitka-Action@main
-
+      - name: Install LLVM and Clang
+        uses: KyleMayes/install-llvm-action@v2
+        if: ${{ matrix.nuitka }}
         with:
-          script-name: netload.py
-          standalone: true
-          python-version: "3.12"
-          output-dir: dist
-      - name: List dist contents
-        run: ls -l dist
+          version: ${{ matrix.clang-version }}
+
+      - name: Install Linux system dependencies
+        if: matrix.os == 'ubuntu-latest'
+        run: sudo apt update --fix-missing && sudo apt install -y patchelf ccache
+
+      - name: Install Windows system dependencies
+        if: matrix.os == 'windows-latest'
+        run: choco install ccache -y
+
+      - name: Install macOS system dependencies
+        if: matrix.os == 'macos-latest'
+        run: |
+          brew install ccache libmagic
+          echo "SDKROOT=$(xcrun --sdk macosx --show-sdk-path)" >> $GITHUB_ENV
+
+      - name: Run build command
+        shell: bash
+        run: |
+            python -m nuitka --standalone --clang --output-dir=dist netload.py 
+
+      - name: Make binaries executable
+        if: matrix.os == 'macos-latest' || matrix.os == 'ubuntu-latest'
+        run: chmod +x ./*dist/netload || true
+        
       - name: Rename output binary
         run: |
           FILE=$(ls dist | grep -E "^main(\.exe)?$")
-          mv "dist/$FILE" "dist/$BINNAME"
-      - name: List dist contents after rename
-        run: ls -l dist
+          mv "dist/$FILE" "dist/$BINNAME${{ matrix.ext }}"
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact_name }}
           path: dist/*
 
+      - name: Archive files
+        shell: bash
+        run: |
+          version=${GITHUB_REF#refs/tags/}
+          extra="README.md LICENSE"
+          cd dist
+          cp ../{README.md,LICENSE} .
+          if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
+            7z a "$BINNAME.zip" $BINNAME $extra
+          elif [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+            7z a "$BINNAME.zip" $BINNAME${{ matrix.ext }} $extra
+          else   
+            7z a "$BINNAME.zip" $BINNAME $extra
+          fi
+          cd ..
+      
   upload-release-assets:
     if: ${{ github.event.release }}
     needs: build
@@ -70,14 +101,19 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           path: release-binaries
+          
       - name: List release-binaries contents
         run: ls -l release-binaries
+        
       - name: List linux-binary contents
         run: ls -l release-binaries/linux-binary
+        
       - name: List windows-binary contents
         run: ls -l release-binaries/windows-binary
+        
       - name: List macos-binary contents
         run: ls -l release-binaries/macos-binary
+        
       - name: Upload binaries to release
         uses: softprops/action-gh-release@v2
         with:

@@ -54,7 +54,7 @@ jobs:
       - name: Rename output binary
         run: |
           FILE=$(ls dist | grep -E "^main(\.exe)?$")
-          mv "dist/$FILE" "dist/$BINNAME"
+          mv -v "dist/$FILE" "dist/$BINNAME"
       - name: List dist contents after rename
         run: ls -l dist
       - uses: actions/upload-artifact@v4

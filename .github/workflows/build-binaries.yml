@@ -1,4 +1,4 @@
-name: Build  Binaries
+name: Build Binaries
 
 on:
   release:
@@ -37,17 +37,23 @@ jobs:
           ARCH=$(uname -m)
           BINNAME="netload-${VERSION}-${{ matrix.os_name }}-${ARCH}${{ matrix.ext }}"
           echo "BINNAME=$BINNAME" >> $GITHUB_ENV
+
       - name: Build with Nuitka
-        uses: Nuitka/nuitka-action@mains
+        uses: Nuitka/nuitka-action@main
+
         with:
           script-name: netload.py
           standalone: true
           python-version: "3.12"
           output-dir: dist
+      - name: List dist contents
+        run: ls -l dist
       - name: Rename output binary
         run: |
           FILE=$(ls dist | grep -E "^main(\.exe)?$")
           mv "dist/$FILE" "dist/$BINNAME"
+      - name: List dist contents after rename
+        run: ls -l dist
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact_name }}
@@ -61,6 +67,14 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           path: release-binaries
+      - name: List release-binaries contents
+        run: ls -l release-binaries
+      - name: List linux-binary contents
+        run: ls -l release-binaries/linux-binary
+      - name: List windows-binary contents
+        run: ls -l release-binaries/windows-binary
+      - name: List macos-binary contents
+        run: ls -l release-binaries/macos-binary
       - name: Upload binaries to release
         uses: softprops/action-gh-release@v2
         with:

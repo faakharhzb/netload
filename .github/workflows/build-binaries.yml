@@ -46,8 +46,7 @@ jobs:
 
         with:
           script-name: netload.py
-          standalone: true
-          python-version: "3.12"
+          mode: "standalone"
           output-dir: dist
       - name: List dist contents
         run: ls -l dist

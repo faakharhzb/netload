@@ -1,0 +1,70 @@
+name: Build  Binaries
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  build:
+    if: github.event.release.prerelease == false
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        include:
+          - os: ubuntu-latest
+            artifact_name: linux-binary
+            os_name: linux
+            ext: ""
+          - os: windows-latest
+            artifact_name: windows-binary
+            os_name: windows
+            ext: ".exe"
+          - os: macos-latest
+            artifact_name: macos-binary
+            os_name: macos
+            ext: ""
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Set binary name
+        id: binname
+        run: |
+          VERSION="${{ github.event.release.tag_name }}"
+          ARCH=$(uname -m)
+          BINNAME="netload-${VERSION}-${{ matrix.os_name }}-${ARCH}${{ matrix.ext }}"
+          echo "BINNAME=$BINNAME" >> $GITHUB_ENV
+      - name: Build with Nuitka
+        uses: Nuitka/nuitka-action@v1
+        with:
+          script-name: netload.py
+          standalone: true
+          python-version: "3.12"
+          output-dir: dist
+      - name: Rename output binary
+        run: |
+          FILE=$(ls dist | grep -E "^main(\.exe)?$")
+          mv "dist/$FILE" "dist/$BINNAME"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: dist/*
+
+  upload-release-assets:
+    if: github.event.release.prerelease == false
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: release-binaries
+      - name: Upload binaries to release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            release-binaries/linux-binary/*
+            release-binaries/windows-binary/*
+            release-binaries/macos-binary/*
